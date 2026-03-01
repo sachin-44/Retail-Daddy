@@ -1,0 +1,104 @@
+{% extends "decisions/base.html" %}
+{% block title %}Step 3 — Add Candidates{% endblock %}
+{% block content %}
+
+<div class="card p-4">
+    <h2 class="fw-bold mb-1">Who are you comparing?</h2>
+    <p class="text-muted mb-4">
+        Add all candidates for <strong>{{ role }}</strong>. Minimum 2, no maximum.
+    </p>
+
+    <form method="post" id="candidates-form">
+        {% csrf_token %}
+
+        <input type="hidden" name="ca-TOTAL_FORMS"   id="ca-TOTAL_FORMS"   value="{% if candidate_names %}{{ candidate_names|length }}{% else %}2{% endif %}">
+        <input type="hidden" name="ca-INITIAL_FORMS" id="ca-INITIAL_FORMS" value="0">
+        <input type="hidden" name="ca-MIN_NUM_FORMS" value="2">
+        <input type="hidden" name="ca-MAX_NUM_FORMS" value="100">
+
+        <div id="candidate-rows">
+            {% if candidate_names %}
+                {% for name in candidate_names %}
+                <div class="candidate-row d-flex gap-2 mb-2 align-items-center">
+                    <span class="text-muted small fw-bold" style="width:24px; text-align:right;">{{ forloop.counter }}</span>
+                    <input type="text"
+                           name="ca-{{ forloop.counter0 }}-name"
+                           id="ca-{{ forloop.counter0 }}-name"
+                           value="{{ name }}"
+                           placeholder="Candidate name"
+                           class="form-control"
+                           required>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-cand" style="min-width:36px;">✕</button>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="candidate-row d-flex gap-2 mb-2 align-items-center">
+                    <span class="text-muted small fw-bold" style="width:24px; text-align:right;">1</span>
+                    <input type="text" name="ca-0-name" id="ca-0-name" placeholder="Candidate name" class="form-control" required>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-cand" style="min-width:36px;">✕</button>
+                </div>
+                <div class="candidate-row d-flex gap-2 mb-2 align-items-center">
+                    <span class="text-muted small fw-bold" style="width:24px; text-align:right;">2</span>
+                    <input type="text" name="ca-1-name" id="ca-1-name" placeholder="Candidate name" class="form-control" required>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-cand" style="min-width:36px;">✕</button>
+                </div>
+            {% endif %}
+        </div>
+
+        <button type="button" id="add-candidate" class="btn btn-sm btn-outline-primary mb-4">
+            + Add another candidate
+        </button>
+
+        <div class="d-flex gap-3">
+            <a href="{% url 'step2_criteria' %}" class="btn btn-outline-secondary">← Back</a>
+            <button type="submit" class="btn btn-primary px-4">Next — Enter Values →</button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const container  = document.getElementById('candidate-rows');
+const totalField = document.getElementById('ca-TOTAL_FORMS');
+
+function reindex() {
+    const rows = container.querySelectorAll('.candidate-row');
+    rows.forEach((row, i) => {
+        const inp = row.querySelector('input[type="text"]');
+        const num = row.querySelector('span');
+        if (inp) { inp.name = 'ca-' + i + '-name'; inp.id = 'ca-' + i + '-name'; }
+        if (num) num.textContent = i + 1;
+    });
+    totalField.value = rows.length;
+}
+
+document.getElementById('add-candidate').addEventListener('click', () => {
+    const idx    = container.querySelectorAll('.candidate-row').length;
+    const newRow = document.createElement('div');
+    newRow.className = 'candidate-row d-flex gap-2 mb-2 align-items-center';
+    newRow.innerHTML = `
+        <span class="text-muted small fw-bold" style="width:24px; text-align:right;">${idx + 1}</span>
+        <input type="text" name="ca-${idx}-name" id="ca-${idx}-name"
+               placeholder="Candidate name" class="form-control" required>
+        <button type="button" class="btn btn-outline-danger btn-sm remove-cand" style="min-width:36px;">✕</button>
+    `;
+    container.appendChild(newRow);
+    totalField.value = idx + 1;
+    newRow.querySelector('input').focus();
+});
+
+container.addEventListener('click', e => {
+    if (e.target.closest('.remove-cand')) {
+        const rows = container.querySelectorAll('.candidate-row');
+        if (rows.length > 2) {
+            e.target.closest('.candidate-row').remove();
+            reindex();
+        } else {
+            alert('You need at least 2 candidates.');
+        }
+    }
+});
+</script>
+{% endblock %}

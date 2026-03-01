@@ -1,0 +1,63 @@
+{% extends "decisions/base.html" %}
+{% load score_filters %}
+{% block title %}Step 4 — Rate Each Candidate{% endblock %}
+{% block content %}
+<div class="step-bar">
+    <div class="step-dot done">1</div><div class="step-line"></div>
+    <div class="step-dot done">2</div><div class="step-line"></div>
+    <div class="step-dot done">3</div><div class="step-line"></div>
+    <div class="step-dot active">4</div>
+</div>
+<div class="card p-4">
+    <h2 class="fw-bold mb-1">Rate each candidate</h2>
+    <p class="text-muted mb-1">Score <strong>1–10</strong> for each criteria.</p>
+    <p class="text-muted small mb-4">1 = poor &nbsp;|&nbsp; 5 = acceptable &nbsp;|&nbsp; 10 = exceptional</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:180px">Criteria</th>
+                        {% for f in forms_list %}
+                        <th class="text-center">{{ f.candidate_name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in criteria %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ c.name }}</div>
+                            {% if c.description %}
+                            <div class="text-muted small">10 = {{ c.description }}</div>
+                            {% endif %}
+                        </td>
+                        {% for f in forms_list %}
+                        <td class="text-center" style="min-width:110px">
+                            {% with fname="criteria_"|add:c.id|stringformat:"s" %}
+                            {% for field in f %}
+                                {% if field.name == fname %}
+                                    {{ field }}
+                                    {% if field.errors %}
+                                    <div class="text-danger small">{{ field.errors }}</div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                            {% endwith %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex gap-3 mt-3">
+            <a href="{% url 'step3_candidates' %}" class="btn btn-outline-secondary">← Back</a>
+            <button type="submit" class="btn btn-primary px-5">Calculate Results →</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

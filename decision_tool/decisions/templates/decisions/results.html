@@ -1,0 +1,534 @@
+{% extends "decisions/base.html" %}
+{% load score_filters %}
+{% block title %}Results — {{ role }}{% endblock %}
+
+{% block content %}
+
+<!-- ── Smart scale notice ── -->
+{% for c in criteria %}
+{% with si=result.scale_info|get_item:c.id %}
+{% if si.smart_scale %}
+{% if forloop.first %}
+<div class="alert mb-4 p-3 no-print" style="background:#f0fdf4;border-left:4px solid #16a34a;border-radius:6px;">
+    <div class="d-flex align-items-start gap-2">
+        <span>🎯</span>
+        <div class="small text-dark">
+            <strong>Smart scale applied automatically</strong> —
+            {% endif %}
+            <strong>{{ c.name }}</strong> scored against its real-world range ({{ si.min|floatformat:0 }}–{{ si.max|floatformat:0 }}{% if si.smart_label %} {{ si.smart_label }}{% endif %}){% if not forloop.last %},{% endif %}
+            {% if forloop.last %}
+            . Candidates are ranked proportionally to the full scale, not just stretched between each other.
+            To override, set a custom range in Step 2.
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endwith %}
+{% endfor %}
+
+<!-- ── Page header ── -->
+<div class="d-flex justify-content-between align-items-start mb-4 no-print">
+    <div>
+        <h2 class="fw-bold mb-0">{{ role }}</h2>
+        <p class="text-muted small mb-0">Weighted scoring analysis · {{ result.ranked|length }} candidates evaluated</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if not saved %}<a href="{% url 'save_decision' %}" class="btn btn-sm btn-outline-success">Save</a>{% endif %}
+        <button onclick="window.print()" class="btn btn-sm btn-outline-secondary no-print">Print</button>
+        <a href="{% url 'start_over' %}" class="btn btn-sm btn-outline-danger no-print">Start Over</a>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 1. WINNER HERO                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+{% with winner=result.ranked.0 %}
+<div class="card mb-4 border-0 shadow" style="background:linear-gradient(135deg,#1A3A6E 0%,#2563eb 100%);border-radius:14px;">
+    <div class="card-body px-5 py-4">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:70px;height:70px;background:rgba(255,255,255,0.15);font-size:2rem;">🥇</div>
+            <div class="flex-grow-1">
+                <div class="text-white-50 small fw-semibold text-uppercase mb-1">Recommended Candidate</div>
+                <div class="text-white fw-bold" style="font-size:2rem;line-height:1.1;">{{ winner.candidate_name }}</div>
+                <div class="text-white-50 mt-1" style="font-size:0.88rem;">Ranked 1st · highest weighted score across all criteria</div>
+            </div>
+            <div class="text-center flex-shrink-0">
+                <div class="text-white fw-bold" style="font-size:3rem;line-height:1;">{{ winner.total_pct }}%</div>
+                <div class="text-white-50 small">overall score</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endwith %}
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 2. FULL RANKING WITH GAP BADGES                   -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-white fw-semibold px-4 py-3" style="border-bottom:1px solid #eee;">Candidate Ranking</div>
+    <div class="card-body px-4 py-2" id="ranking-list">
+        {% for r in result.ranked %}
+        <div class="d-flex align-items-center gap-4 py-3 ranking-row" data-pct="{{ r.total_pct }}"
+             style="{% if r.rank == 1 %}background:#f0f7ff;border-radius:10px;padding-left:1rem;padding-right:1rem;{% endif %}">
+            <div class="flex-shrink-0"><span class="rank-badge rank-{{ r.rank }}">{{ r.rank }}</span></div>
+            <div style="min-width:140px;" class="fw-bold {% if r.rank == 1 %}fs-5{% endif %}">{{ r.candidate_name }}</div>
+            <div class="flex-grow-1">
+                <div style="background:#e9ecef;border-radius:6px;height:10px;overflow:hidden;">
+                    <div style="background:{% if r.rank == 1 %}#1A3A6E{% elif r.rank == 2 %}#6c757d{% else %}#adb5bd{% endif %};
+                                height:100%;width:{{ r.total_pct }}%;border-radius:6px;"></div>
+                </div>
+            </div>
+            <div class="fw-bold text-end flex-shrink-0" style="min-width:60px;font-size:1.1rem;">{{ r.total_pct }}%</div>
+        </div>
+        {% if not forloop.last %}
+        <div class="d-flex align-items-center gap-2 py-1 gap-badge-row" data-index="{{ forloop.counter0 }}">
+            <div style="flex:1;height:1px;background:#dee2e6;"></div>
+            <span class="gap-badge-label" style="font-size:0.7rem;font-weight:600;border-radius:20px;padding:2px 12px;border:1px solid;white-space:nowrap;"></span>
+            <div style="flex:1;height:1px;background:#dee2e6;"></div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 3. STABILITY + GAP SUMMARY                        -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        {% if result.is_stable %}
+        <div class="h-100 rounded p-4 border-0 shadow-sm" style="background:#f0fdf4;border-left:4px solid #16a34a!important;">
+            <div class="fw-bold mb-1" style="color:#166534;">🟢 Stable Decision</div>
+            <div class="small text-dark">{{ result.stability_detail }}</div>
+        </div>
+        {% else %}
+        <div class="h-100 rounded p-4 border-0 shadow-sm" style="background:#fffbeb;border-left:4px solid #f59e0b!important;">
+            <div class="fw-bold mb-1" style="color:#92400e;">🟡 Sensitive Decision</div>
+            <div class="small text-dark">{{ result.stability_detail }}</div>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-md-6">
+        <div class="h-100 rounded p-4 border-0 shadow-sm" style="background:#f8f9fa;">
+            {% if result.score_gap is not None and result.score_gap < 0.05 %}
+            <div class="fw-bold mb-1" style="color:#1e40af;">⚠️ Very Close Call</div>
+            <div class="small text-dark">Top two differ by only {{ result.score_gap|floatformat:3 }} pts. Consider a second interview.</div>
+            {% else %}
+            <div class="fw-bold mb-1 text-muted">📏 Score Gap</div>
+            <div class="small text-muted">
+                {% if result.score_gap is not None %}
+                    {% if result.score_gap > 0.15 %}<strong>Large gap</strong> — {{ result.ranked.0.candidate_name }} leads clearly.
+                    {% elif result.score_gap > 0.08 %}<strong>Medium gap</strong> — a meaningful but not decisive lead.
+                    {% else %}<strong>Small gap</strong> — candidates are relatively close.
+                    {% endif %}
+                    ({{ result.score_gap|floatformat:3 }} pts)
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 4. WRITTEN ANALYSIS                               -->
+<!-- ══════════════════════════════════════════════════ -->
+{% if result.narrative %}
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-dark text-white d-flex align-items-center gap-2 px-4 py-3">
+        <span>📋</span><span class="fw-bold">Decision Report — Written Analysis</span>
+        <span class="ms-auto badge bg-secondary">Auto-generated</span>
+    </div>
+    <div class="card-body px-5 py-4" style="line-height:1.8;font-size:0.96rem;">
+        <div class="mb-4">
+            <div class="fw-bold text-success mb-2">✅ Recommendation</div>
+            <p class="mb-0">{{ result.narrative.recommendation }}</p>
+        </div>
+        <hr style="border-color:#eee;">
+        <div class="mb-4">
+            <div class="fw-bold mb-2" style="color:#1A3A6E;">🎯 What Drove This Decision</div>
+            <p class="mb-0">{{ result.narrative.decision_drivers }}</p>
+        </div>
+        <hr style="border-color:#eee;">
+        <div class="mb-4">
+            <div class="fw-bold mb-2" style="color:#1A3A6E;">👥 Candidate Comparison</div>
+            <p class="mb-0">{{ result.narrative.candidate_comparison }}</p>
+        </div>
+        <hr style="border-color:#eee;">
+        <div class="mb-4">
+            <div class="fw-bold mb-2" style="color:#d97706;">🔍 Priority Alignment</div>
+            <p class="mb-0">{{ result.narrative.blindspot_analysis }}</p>
+        </div>
+        <hr style="border-color:#eee;">
+        <div>
+            <div class="fw-bold mb-2" style="color:{% if result.is_stable %}#1A5E35{% else %}#c0392b{% endif %};">
+                {% if result.is_stable %}🟢{% else %}🟡{% endif %} Confidence Assessment
+            </div>
+            <p class="mb-0">{{ result.narrative.confidence_assessment }}</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 5. SCORE BREAKDOWN TABLE                          -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-white px-4 py-3" style="border-bottom:1px solid #eee;">
+        <div class="fw-semibold">Score Breakdown by Criteria</div>
+        <div class="text-muted small mt-1">How each candidate performed per factor and how much it contributed to their final score</div>
+        <div class="mt-2 d-flex flex-wrap gap-3" style="font-size:0.78rem;">
+            <span style="color:#6b7280;">
+                <strong style="color:#374151;">Scale label</strong> — position against the real-world range (e.g. 4 yrs on a 0–20 scale = Below average)
+            </span>
+            <span style="color:#6b7280;">
+                <strong style="color:#374151;">Pool label</strong> — rank among <em>these</em> candidates (🥇 Best in pool = highest raw value here)
+            </span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead>
+                <tr style="background:#f8f9fa;">
+                    <th class="px-4 py-3" style="min-width:160px;border-bottom:2px solid #dee2e6;">Criteria</th>
+                    <th class="px-3 py-3 text-center" style="width:80px;border-bottom:2px solid #dee2e6;">
+                        <span class="text-muted small">Weight</span>
+                    </th>
+                    {% for r in result.ranked %}
+                    <th class="px-4 py-3 text-center" style="min-width:190px;border-bottom:2px solid #dee2e6;">
+                        <div class="fw-bold">{{ r.candidate_name }}</div>
+                        <div class="text-muted" style="font-size:10px;margin-top:2px;">value · scale % · band · pool rank · pts</div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in criteria %}
+                <tr style="border-bottom:1px solid #f0f0f0;">
+                    <td class="px-4 py-4">
+                        <div class="fw-semibold mb-2">{{ c.name }}</div>
+                        {% if c.is_cost %}
+                        <span class="badge" style="background:#fff8e1;color:#b45309;font-size:10px;border:1px solid #fde68a;">↓ lower is better</span>
+                        {% else %}
+                        <span class="badge" style="background:#f0fdf4;color:#166634;font-size:10px;border:1px solid #bbf7d0;">↑ higher is better</span>
+                        {% endif %}
+                        {% with si=result.scale_info|get_item:c.id %}
+                        {% if si.user_defined %}
+                        <div class="mt-1">
+                            <span class="badge" style="background:#e8f0fe;color:#1A3A6E;font-size:9px;border:1px solid #c7d8fa;">
+                                📐 custom scale {{ si.min|floatformat:0 }}–{{ si.max|floatformat:0 }}
+                            </span>
+                        </div>
+                        {% elif si.smart_scale %}
+                        <div class="mt-1">
+                            <span class="badge" style="background:#f0fdf4;color:#166534;font-size:9px;border:1px solid #bbf7d0;"
+                                  title="Scale auto-detected from criteria name — scores reflect real proportional position">
+                                🎯 smart scale {{ si.min|floatformat:0 }}–{{ si.max|floatformat:0 }}{% if si.smart_label %} {{ si.smart_label }}{% endif %}
+                            </span>
+                        </div>
+                        {% else %}
+                        <div class="mt-1">
+                            <span class="badge" style="background:#fff8e1;color:#b45309;font-size:9px;border:1px solid #fde68a;"
+                                  title="Scores are stretched across only the candidate range — set a scale in Step 2 for more accurate results">
+                                ⚡ auto-scaled to candidates
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-3 py-4 text-center">
+                        <span class="badge rounded-pill px-3" style="background:#e8f0fe;color:#1A3A6E;font-weight:700;font-size:0.82rem;">{{ c.weight }}</span>
+                    </td>
+                    {% for r in result.ranked %}
+                    {% with rv=r.raw_values|get_item:c.id nv=r.norm_values|get_item:c.id bv=r.breakdown|get_item:c.id si=result.scale_info|get_item:c.id rsp=r.raw_scale_pos|get_item:c.id pr=r.pool_rank|get_item:c.id %}
+                    <td class="px-4 py-4 text-center">
+
+                        <!-- Raw value -->
+                        <div class="text-muted mb-1" style="font-size:0.85rem;">{{ rv }}</div>
+
+                        <!-- % of scale (only when scale is set) -->
+                        {% if si.user_defined or si.smart_scale %}
+                        <div class="mb-2" style="font-size:0.72rem;color:#6c757d;">
+                            {{ rsp|mul100 }}% of scale
+                        </div>
+                        {% endif %}
+
+                        <!-- LAYER 1: Absolute band — position on real-world scale -->
+                        {% if si.user_defined or si.smart_scale %}
+                            {% if rsp >= 0.8 %}
+                                <div class="mb-1" style="color:#166534;font-size:0.8rem;font-weight:600;">Excellent</div>
+                            {% elif rsp >= 0.6 %}
+                                <div class="mb-1" style="color:#2d6a4f;font-size:0.8rem;font-weight:600;">Good</div>
+                            {% elif rsp >= 0.4 %}
+                                <div class="mb-1" style="color:#d97706;font-size:0.8rem;font-weight:600;">Average</div>
+                            {% elif rsp >= 0.2 %}
+                                <div class="mb-1" style="color:#b45309;font-size:0.8rem;font-weight:600;">Below average</div>
+                            {% else %}
+                                <div class="mb-1" style="color:#dc2626;font-size:0.8rem;font-weight:600;">Low</div>
+                            {% endif %}
+                        {% else %}
+                            {% comment %}No scale set — keep original single-label logic{% endcomment %}
+                            {% if nv >= 0.8 %}
+                                <div class="mb-1" style="color:#166534;font-size:0.8rem;font-weight:600;">★ Best here</div>
+                            {% elif nv >= 0.6 %}
+                                <div class="mb-1" style="color:#2d6a4f;font-size:0.8rem;font-weight:600;">Above average</div>
+                            {% elif nv >= 0.4 %}
+                                <div class="mb-1" style="color:#d97706;font-size:0.8rem;font-weight:600;">Mid-field</div>
+                            {% elif nv >= 0.2 %}
+                                <div class="mb-1" style="color:#b45309;font-size:0.8rem;font-weight:600;">Below average</div>
+                            {% else %}
+                                <div class="mb-1" style="color:#dc2626;font-size:0.8rem;font-weight:600;">✗ Weakest</div>
+                            {% endif %}
+                        {% endif %}
+
+                        <!-- LAYER 2: Relative rank within this pool -->
+                        {% if pr == 1 %}
+                            <div class="mb-2" style="background:#dcfce7;color:#166534;border:1px solid #86efac;
+                                 border-radius:20px;padding:2px 9px;font-size:0.72rem;font-weight:700;display:inline-block;">
+                                🥇 Best in pool
+                            </div>
+                        {% elif pr == result.num_candidates %}
+                            <div class="mb-2" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;
+                                 border-radius:20px;padding:2px 9px;font-size:0.72rem;font-weight:600;display:inline-block;">
+                                Lowest in pool
+                            </div>
+                        {% else %}
+                            <div class="mb-2" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;
+                                 border-radius:20px;padding:2px 9px;font-size:0.72rem;font-weight:600;display:inline-block;">
+                                #{{ pr }} in pool
+                            </div>
+                        {% endif %}
+
+                        <!-- Points contribution — 3 decimal places to show fine differences -->
+                        <div class="d-inline-block rounded-pill px-2 py-1"
+                             style="background:#f1f3f5;color:#555;font-size:0.72rem;border:1px solid #dee2e6;display:block;margin-top:4px;">
+                            +{{ bv|floatformat:3 }} of {{ c.weight }} pts
+                        </div>
+                    </td>
+                    {% endwith %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                <tr style="background:#1A3A6E;">
+                    <td class="px-4 py-3 text-white fw-bold" colspan="2">Final Score</td>
+                    {% for r in result.ranked %}
+                    <td class="px-4 py-3 text-center">
+                        <span class="fw-bold text-white" style="font-size:1.25rem;">{{ r.total_pct }}%</span>
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 6. WEIGHT IMPACT TABLE                            -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-white px-4 py-3" style="border-bottom:1px solid #eee;">
+        <div class="fw-semibold">Weight Impact — What You Said vs What Actually Drove the Score</div>
+        <div class="text-muted small mt-1">A large gap means a criteria had more or less influence than you intended.</div>
+    </div>
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead>
+                <tr style="background:#f8f9fa;">
+                    <th class="px-4 py-3" style="border-bottom:2px solid #dee2e6;">Criteria</th>
+                    <th class="px-4 py-3 text-end" style="border-bottom:2px solid #dee2e6;">You weighted it</th>
+                    <th class="px-4 py-3 text-end" style="border-bottom:2px solid #dee2e6;">Actual impact</th>
+                    <th class="px-4 py-3 text-end" style="border-bottom:2px solid #dee2e6;">Gap</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in result.stated_vs_actual %}
+                <tr style="border-bottom:1px solid #f0f0f0;">
+                    <td class="px-4 py-3 fw-semibold">{{ row.name }}</td>
+                    <td class="px-4 py-3 text-end text-muted">{{ row.stated_pct }}%</td>
+                    <td class="px-4 py-3 text-end fw-semibold">{{ row.actual_pct }}%</td>
+                    <td class="px-4 py-3 text-end">
+                        {% if row.delta > 15 %}<span class="badge bg-danger px-2">{{ row.delta }}% ⚠</span>
+                        {% elif row.delta > 8 %}<span class="badge bg-warning text-dark px-2">{{ row.delta }}%</span>
+                        {% else %}<span class="text-muted small">{{ row.delta }}%</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 7. LOW-WEIGHT DRIVING ALERT (JS-powered)          -->
+<!-- ══════════════════════════════════════════════════ -->
+<div id="low-weight-alert-zone"></div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- 8. WHAT-IF SLIDERS                                -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card mb-5 border-0 shadow-sm no-print">
+    <div class="card-header bg-white px-4 py-3 d-flex justify-content-between align-items-center" style="border-bottom:1px solid #eee;">
+        <div>
+            <div class="fw-semibold">What-if: Adjust Weights</div>
+            <div class="text-muted small mt-1">Drag sliders to see how changing priorities would affect the ranking</div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" id="reset-weights">Reset</button>
+    </div>
+    <div class="card-body px-4 py-4">
+        {% for c in criteria %}
+        <div class="row align-items-center mb-3">
+            <div class="col-3 small fw-semibold">{{ c.name }}</div>
+            <div class="col-6">
+                <input type="range" class="form-range weight-slider"
+                       data-criteria-id="{{ c.id }}" data-criteria-name="{{ c.name }}"
+                       data-criteria-weight="{{ c.weight }}"
+                       min="1" max="100" value="{{ c.weight }}" id="slider_{{ c.id }}">
+            </div>
+            <div class="col-1 text-center small fw-bold" id="val_{{ c.id }}">{{ c.weight }}</div>
+            <div class="col-2 text-end"><small class="text-muted" id="pct_{{ c.id }}"></small></div>
+        </div>
+        {% endfor %}
+        <div id="whatif-result" class="mt-3 p-4 rounded d-none" style="background:#f8f9fa;border:1px solid #dee2e6;">
+            <div class="fw-semibold mb-3">Updated ranking with adjusted weights:</div>
+            <div id="whatif-list"></div>
+            <div id="whatif-stability" class="mt-2 small text-muted"></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Data from Django ───────────────────────────────────────────────────────
+const rankData = [{% for r in result.ranked %}{ name:"{{ r.candidate_name }}", pct:{{ r.total_pct }}, rank:{{ r.rank }} },{% endfor %}];
+const criteriaData = [{% for c in criteria %}{ id:{{ c.id }}, name:"{{ c.name }}", weight:{{ c.weight }} },{% endfor %}];
+const breakdownData = {
+    {% for r in result.ranked %}
+    "{{ r.candidate_name }}": { {% for c in criteria %}"{{ c.id }}": {{ r.breakdown|get_item:c.id|floatformat:4 }},{% endfor %} },
+    {% endfor %}
+};
+const originalWeights = { {% for c in criteria %}"{{ c.id }}": {{ c.weight }},{% endfor %} };
+
+// ── Gap badges between ranking rows ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.gap-badge-label').forEach((el, i) => {
+        if (i + 1 >= rankData.length) return;
+        const gap = rankData[i].pct - rankData[i + 1].pct;
+        let label, bg, color, border;
+        if (gap >= 15) {
+            label = `▼ Large lead — ${gap.toFixed(1)}% ahead`;
+            bg='#fef2f2'; color='#991b1b'; border='#fca5a5';
+        } else if (gap >= 7) {
+            label = `▼ Medium lead — ${gap.toFixed(1)}% ahead`;
+            bg='#fffbeb'; color='#92400e'; border='#fcd34d';
+        } else {
+            label = `▼ Small lead — ${gap.toFixed(1)}% ahead`;
+            bg='#f0fdf4'; color='#166534'; border='#86efac';
+        }
+        el.textContent = label;
+        el.style.background = bg;
+        el.style.color = color;
+        el.style.borderColor = border;
+    });
+
+    // ── Low-weight driving alert ───────────────────────────────────────────
+    if (rankData.length >= 2) {
+        const first = rankData[0];
+        const second = rankData[1];
+        const totalGap = first.pct - second.pct;
+        const alertZone = document.getElementById('low-weight-alert-zone');
+        const alerts = [];
+
+        criteriaData.forEach(c => {
+            if (c.weight <= 25) {
+                const b1 = parseFloat(breakdownData[first.name]?.[c.id] || 0);
+                const b2 = parseFloat(breakdownData[second.name]?.[c.id] || 0);
+                const critGap = b1 - b2;
+                const totalGapPts = (first.pct - second.pct) / 100;
+                if (critGap > 0 && totalGapPts > 0) {
+                    const contribution = (critGap / totalGapPts) * 100;
+                    if (contribution >= 40) {
+                        alerts.push({ name: c.name, weight: c.weight, contribution: contribution.toFixed(0), b1, b2, first: first.name, second: second.name });
+                    }
+                }
+            }
+        });
+
+        alerts.forEach(a => {
+            const div = document.createElement('div');
+            div.className = 'mb-3';
+            div.innerHTML = `
+                <div class="rounded p-4 shadow-sm d-flex gap-3 align-items-start"
+                     style="background:#fffbeb;border-left:4px solid #f59e0b;">
+                    <span style="font-size:1.3rem;flex-shrink:0;">💡</span>
+                    <div>
+                        <div class="fw-bold mb-1" style="color:#92400e;">
+                            Low-weight criteria driving ${a.contribution}% of the ranking gap
+                        </div>
+                        <div class="small text-dark">
+                            <strong>${a.name}</strong> has a low weight of <strong>${a.weight}</strong>,
+                            but it accounts for about <strong>${a.contribution}%</strong> of the score difference
+                            between ${a.first} and ${a.second}
+                            (+${(a.b1).toFixed(2)} vs +${(a.b2).toFixed(2)} pts).
+                            If ${a.name} was not meant to be this influential, consider adjusting its weight
+                            or reviewing whether the spread in candidate values is genuinely meaningful.
+                        </div>
+                    </div>
+                </div>`;
+            alertZone.appendChild(div);
+        });
+    }
+});
+
+// ── What-if sliders ────────────────────────────────────────────────────────
+let debounceTimer;
+document.querySelectorAll('.weight-slider').forEach(slider => {
+    slider.addEventListener('input', () => {
+        document.getElementById(`val_${slider.dataset.criteriaId}`).textContent = slider.value;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runWhatIf, 400);
+    });
+});
+
+function runWhatIf() {
+    const weights = {};
+    document.querySelectorAll('.weight-slider').forEach(s => { weights[s.dataset.criteriaId] = parseFloat(s.value); });
+    fetch("{% url 'recalculate' %}", {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({ weights })
+    }).then(r => r.json()).then(data => {
+        const listEl = document.getElementById('whatif-list');
+        listEl.innerHTML = '';
+        data.ranked.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'd-flex align-items-center gap-3 mb-2';
+            div.innerHTML = `
+                <span style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+                      background:${r.rank===1?'#1A3A6E':'#6c757d'};color:white;font-size:0.8rem;font-weight:700;flex-shrink:0;">${r.rank}</span>
+                <span class="${r.rank===1?'fw-bold':''}" style="flex:1;">${r.candidate_name}</span>
+                <div style="flex:2;background:#e9ecef;border-radius:4px;height:8px;overflow:hidden;">
+                    <div style="background:${r.rank===1?'#1A3A6E':'#adb5bd'};height:100%;width:${r.total_pct}%;"></div>
+                </div>
+                <span class="fw-bold" style="min-width:50px;text-align:right;">${r.total_pct}%</span>`;
+            listEl.appendChild(div);
+        });
+        document.getElementById('whatif-stability').textContent = data.stability_detail;
+        document.getElementById('whatif-result').classList.remove('d-none');
+    });
+}
+
+document.getElementById('reset-weights').addEventListener('click', () => {
+    document.querySelectorAll('.weight-slider').forEach(s => {
+        const orig = originalWeights[s.dataset.criteriaId];
+        s.value = orig;
+        document.getElementById(`val_${s.dataset.criteriaId}`).textContent = orig;
+    });
+    document.getElementById('whatif-result').classList.add('d-none');
+});
+</script>
+{% endblock %}

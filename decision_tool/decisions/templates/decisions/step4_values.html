@@ -1,0 +1,87 @@
+{% extends "decisions/base.html" %}
+{% block title %}Step 4 — Enter Candidate Values{% endblock %}
+{% block content %}
+
+<div class="mb-4">
+    <h2 class="fw-bold mb-1">Enter values for each candidate</h2>
+    <p class="text-muted mb-1">
+        Fill in the <strong>raw actual number</strong> for each criteria.
+        e.g. Salary → <strong>55000</strong> &nbsp;·&nbsp;
+        Experience (years) → <strong>7</strong> &nbsp;·&nbsp;
+        Test Score (%) → <strong>82</strong>
+    </p>
+    <small class="text-muted">The tool normalises all values automatically — just enter the real number, not a rating.</small>
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    <!-- One card per candidate ─────────────────────────────── -->
+    {% for card in candidate_cards %}
+    <div class="card mb-4 shadow-sm border-0">
+
+        <!-- Header -->
+        <div class="card-header border-0 py-3 px-4"
+             style="background: linear-gradient(135deg, #1A3A6E 0%, #2563eb 100%); border-radius: 8px 8px 0 0;">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle fw-bold text-white d-flex align-items-center justify-content-center"
+                     style="width:38px; height:38px; background:rgba(255,255,255,0.18); font-size:1.05rem; flex-shrink:0;">
+                    {{ card.number }}
+                </div>
+                <div>
+                    <div class="text-white fw-bold fs-5 lh-1">{{ card.name }}</div>
+                    <div class="text-white-50 small mt-1">{{ criteria|length }} criteria &nbsp;·&nbsp; fill in all fields</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Criteria rows -->
+        <div class="card-body p-0">
+            {% for row in card.rows %}
+            <div class="px-4 py-3 {% if not forloop.last %}border-bottom{% endif %}
+                        d-flex align-items-center gap-4 flex-wrap">
+
+                <!-- Left: criteria label + badges -->
+                <div style="flex: 1; min-width: 180px;">
+                    <div class="fw-semibold mb-1">{{ row.criteria_name }}</div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <span class="badge rounded-pill px-2"
+                              style="background:#e8f0fe; color:#1A3A6E; font-weight:600; font-size:0.72rem;">
+                            weight {{ row.weight }}
+                        </span>
+                        {% if row.is_cost %}
+                        <span class="badge rounded-pill bg-warning text-dark px-2"
+                              style="font-size:0.72rem;">↓ lower is better</span>
+                        {% else %}
+                        <span class="badge rounded-pill px-2"
+                              style="background:#dcfce7; color:#166534; font-size:0.72rem;">↑ higher is better</span>
+                        {% endif %}
+                        {% if row.description %}
+                        <span class="text-muted" style="font-size:0.78rem;">{{ row.description }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Right: input box -->
+                <div style="width: 170px; flex-shrink: 0;">
+                    {{ row.field }}
+                    {% for err in row.errors %}
+                    <div class="text-danger mt-1" style="font-size:0.8rem;">{{ err }}</div>
+                    {% endfor %}
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+    {% endfor %}
+
+    <!-- Navigation -->
+    <div class="d-flex gap-3 mb-5">
+        <a href="{% url 'step3_candidates' %}" class="btn btn-outline-secondary">← Back</a>
+        <button type="submit" class="btn btn-primary px-5">Calculate Results →</button>
+    </div>
+
+</form>
+{% endblock %}

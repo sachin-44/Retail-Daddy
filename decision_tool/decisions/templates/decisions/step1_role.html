@@ -1,0 +1,23 @@
+{% extends "decisions/base.html" %}
+{% block title %}Step 1 — Which role are you hiring for?{% endblock %}
+{% block content %}
+<div class="step-bar">
+    <div class="step-dot active">1</div><div class="step-line"></div>
+    <div class="step-dot pending">2</div><div class="step-line"></div>
+    <div class="step-dot pending">3</div><div class="step-line"></div>
+    <div class="step-dot pending">4</div>
+</div>
+<div class="card p-4">
+    <h2 class="fw-bold mb-1">Which role are you hiring for?</h2>
+    <p class="text-muted mb-4">This will be the title of your hiring scorecard.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.role_title.label_tag }}
+            {{ form.role_title }}
+            {% if form.role_title.errors %}<div class="text-danger small mt-1">{{ form.role_title.errors }}</div>{% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary px-4">Next — Set Criteria →</button>
+    </form>
+</div>
+{% endblock %}

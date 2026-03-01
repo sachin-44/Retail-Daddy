@@ -1,0 +1,291 @@
+{% extends "decisions/base.html" %}
+{% block title %}Step 2 — Evaluation Criteria{% endblock %}
+{% block content %}
+
+<div class="card p-4">
+    <h2 class="fw-bold mb-1">What are you evaluating candidates on?</h2>
+    <p class="text-muted mb-1">
+        Set your criteria, how much each one matters, and whether <strong>lower is better</strong>.
+        Optionally set a <strong>realistic range</strong> to prevent tiny differences from distorting the score.
+    </p>
+    <p class="text-muted small mb-4">Role: <strong>{{ role }}</strong></p>
+
+    <!-- Why range matters — collapsible tip -->
+    <div class="alert mb-4 p-3" style="background:#f0f7ff;border-left:4px solid #2563eb;border-radius:6px;">
+        <div class="d-flex align-items-start gap-2">
+            <span>💡</span>
+            <div class="small text-dark">
+                <strong>Why set a realistic range?</strong>
+                Without a range, the system stretches the gap between your candidates to fill the full scale.
+                If two candidates have 4 and 5 years experience, that 1-year gap becomes the entire difference between 0% and 100%.
+                Setting <em>Min = 0, Max = 10</em> means 4 years = 40% and 5 years = 50% — a fair, proportionate gap.
+                <strong>Leave blank</strong> to use the default (auto-scaled from candidates).
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="criteria-form">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <!-- Column headers -->
+        <div class="row gx-2 mb-2 px-1 align-items-end">
+            <div class="col-3"><small class="text-muted fw-semibold">Criteria name</small></div>
+            <div class="col-1 text-center"><small class="text-muted fw-semibold">Weight</small></div>
+            <div class="col-2">
+                <small class="text-muted fw-semibold">
+                    Realistic range
+                    <span class="ms-1" data-bs-toggle="tooltip"
+                          title="Set the real-world min and max for this criteria in your market. Leaving blank auto-scales from candidate values."
+                          style="cursor:help;">ⓘ</span>
+                </small>
+                <div class="d-flex gap-1 mt-1">
+                    <small class="text-muted" style="flex:1;text-align:center;">Min</small>
+                    <small class="text-muted" style="flex:1;text-align:center;">Max</small>
+                </div>
+            </div>
+            <div class="col-2"><small class="text-muted fw-semibold">Hint (optional)</small></div>
+            <div class="col-3 text-center"><small class="text-muted fw-semibold">Direction</small></div>
+            <div class="col-1"></div>
+        </div>
+
+        <div id="criteria-rows">
+            {% for form in formset %}
+            <div class="criteria-row mb-3 p-3 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;">
+                <div class="row gx-2 align-items-center">
+
+                    <!-- Name -->
+                    <div class="col-3">
+                        {{ form.name }}
+                        {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+                    </div>
+
+                    <!-- Weight -->
+                    <div class="col-1">
+                        {{ form.weight }}
+                        {% if form.weight.errors %}<div class="text-danger small">{{ form.weight.errors }}</div>{% endif %}
+                    </div>
+
+                    <!-- Scale min + max side by side -->
+                    <div class="col-2">
+                        <div class="d-flex gap-1">
+                            <div style="flex:1;">
+                                {{ form.scale_min }}
+                            </div>
+                            <div style="flex:1;">
+                                {{ form.scale_max }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="col-2">
+                        {{ form.description }}
+                    </div>
+
+                    <!-- Direction toggle -->
+                    <div class="col-3 text-center">
+                        <div class="direction-toggle" id="toggle_{{ forloop.counter0 }}">
+                            <label class="direction-btn" id="label_{{ forloop.counter0 }}">
+                                {{ form.is_cost }}
+                                <span class="btn-higher {% if not form.is_cost.value %}active{% endif %}" id="higher_{{ forloop.counter0 }}">
+                                    ↑ Higher is better
+                                </span>
+                                <span class="btn-lower {% if form.is_cost.value %}active{% endif %}" id="lower_{{ forloop.counter0 }}">
+                                    ↓ Lower is better
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Remove -->
+                    <div class="col-1 text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
+                    </div>
+
+                </div>
+
+                <!-- Range preview — shown when both min and max are filled -->
+                <div class="range-preview mt-2 d-none" style="font-size:0.78rem;color:#6c757d;padding-left:4px;">
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
+        <button type="button" id="add-criteria" class="btn btn-sm btn-outline-secondary mb-4">+ Add criteria</button>
+
+        <div class="d-flex gap-3">
+            <a href="{% url 'step1_role' %}" class="btn btn-outline-secondary">← Back</a>
+            <button type="submit" class="btn btn-primary px-4">Next — Add Candidates →</button>
+        </div>
+    </form>
+</div>
+
+<style>
+.direction-toggle { display: inline-block; }
+.direction-btn { cursor: pointer; user-select: none; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.direction-btn input[type=checkbox] { display: none; }
+.btn-higher, .btn-lower {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 2px solid #dee2e6;
+    color: #adb5bd;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.btn-higher.active { background: #d1fae5; border-color: #1A5E35; color: #1A5E35; }
+.btn-lower.active  { background: #fef3c7; border-color: #d97706; color: #d97706; }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+
+function setupToggle(idx) {
+    const label  = document.getElementById(`label_${idx}`);
+    const higher = document.getElementById(`higher_${idx}`);
+    const lower  = document.getElementById(`lower_${idx}`);
+    const cb     = label ? label.querySelector('input[type=checkbox]') : null;
+    if (!cb) return;
+    function refresh() {
+        if (cb.checked) { lower.classList.add('active'); higher.classList.remove('active'); }
+        else            { higher.classList.add('active'); lower.classList.remove('active'); }
+    }
+    cb.addEventListener('change', refresh);
+    label.addEventListener('click', e => { e.preventDefault(); cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); });
+    refresh();
+}
+
+// Smart scale suggestions
+const SMART_SCALES = [
+    { kw:['test score','aptitude','written test','assessment score','gre','gmat','ielts','toefl'], min:0,  max:100,     hint:'Test score (0–100)' },
+    { kw:['experience','years of exp','work exp','relevant exp','total exp','exp years'],         min:0,  max:20,      hint:'Experience (0–20 yrs)' },
+    { kw:['salary','ctc','package','compensation','rupees','inr','lpa','lakh'],                   min:0,  max:1000000, hint:'Salary ₹ (0–10L)' },
+    { kw:['notice period','notice days','joining days'],                                          min:0,  max:180,     hint:'Notice period (0–180 days)' },
+    { kw:['notice weeks'],                                                                        min:0,  max:26,      hint:'Notice period (0–26 weeks)' },
+    { kw:['notice months'],                                                                       min:0,  max:6,       hint:'Notice period (0–6 months)' },
+    { kw:['communication','soft skill','leadership','teamwork','attitude','culture fit','rating'],min:0,  max:10,      hint:'Rating (0–10)' },
+    { kw:['age'],                                                                                 min:18, max:60,      hint:'Age (18–60 yrs)' },
+    { kw:['iq','cognitive'],                                                                      min:70, max:160,     hint:'IQ (70–160)' },
+];
+function detectScale(name) {
+    const n = name.toLowerCase();
+    return SMART_SCALES.find(s => s.kw.some(k => n.includes(k))) || null;
+}
+
+// Range preview: shows scale confirmation or smart chip
+function setupRangePreview(row) {
+    const minInp  = row.querySelector('input[name$="-scale_min"]');
+    const maxInp  = row.querySelector('input[name$="-scale_max"]');
+    const nameInp = row.querySelector('input[name$="-name"]');
+    const preview = row.querySelector('.range-preview');
+    if (!minInp || !maxInp || !preview) return;
+
+    let dismissed = false;
+
+    function update() {
+        const mn = minInp.value.trim();
+        const mx = maxInp.value.trim();
+        const match = nameInp ? detectScale(nameInp.value) : null;
+
+        if (mn !== '' && mx !== '') {
+            // Both filled — confirm
+            const valid = parseFloat(mx) > parseFloat(mn);
+            preview.innerHTML = valid
+                ? `<span style="color:#166534;">✓ Scale set: ${mn} → ${mx} &nbsp;(candidates scored proportionally within this range)</span>`
+                : `<span style="color:#b45309;">⚠ Max must be greater than Min</span>`;
+            preview.classList.remove('d-none');
+            return;
+        }
+        if (mn !== '' || mx !== '') {
+            preview.innerHTML = '<span style="color:#b45309;">Set both min and max to activate fixed scaling — or leave both blank.</span>';
+            preview.classList.remove('d-none');
+            return;
+        }
+        // Both empty — show smart chip if detected and not dismissed
+        if (match && !dismissed) {
+            preview.innerHTML = `
+                <span style="color:#1A3A6E;font-weight:600;">🎯 Smart scale detected: ${match.hint}</span>
+                &nbsp;
+                <button type="button" class="btn btn-sm py-0 px-2"
+                        style="font-size:0.72rem;background:#e8f0fe;border:1px solid #c7d8fa;color:#1A3A6E;border-radius:4px;"
+                        onclick="this.closest('.criteria-row').querySelector('input[name$=&quot;-scale_min&quot;]').value=${match.min};
+                                 this.closest('.criteria-row').querySelector('input[name$=&quot;-scale_max&quot;]').value=${match.max};
+                                 this.closest('.criteria-row').querySelector('input[name$=&quot;-scale_min&quot;]').dispatchEvent(new Event('input'));">
+                    Apply (${match.min}–${match.max})
+                </button>
+                <button type="button" style="background:none;border:none;color:#9ca3af;font-size:0.8rem;cursor:pointer;padding:0 4px;"
+                        onclick="this.parentElement.classList.add('d-none');">✕</button>`;
+            preview.classList.remove('d-none');
+        } else {
+            preview.classList.add('d-none');
+        }
+    }
+
+    minInp.addEventListener('input', update);
+    maxInp.addEventListener('input', update);
+    if (nameInp) nameInp.addEventListener('input', () => { dismissed = false; update(); });
+    update();
+}
+
+document.querySelectorAll('.criteria-row').forEach((row, i) => {
+    setupToggle(i);
+    setupRangePreview(row);
+});
+
+// Add row
+const container  = document.getElementById('criteria-rows');
+const totalForms = document.querySelector('[name="cr-TOTAL_FORMS"]');
+
+document.getElementById('add-criteria').addEventListener('click', () => {
+    const rows = container.querySelectorAll('.criteria-row');
+    const idx  = rows.length;
+    const newRow = rows[0].cloneNode(true);
+
+    newRow.querySelectorAll('input').forEach(inp => {
+        inp.name = inp.name.replace(/cr-\d+/, `cr-${idx}`);
+        inp.id   = inp.id.replace(/cr-\d+/, `cr-${idx}`);
+        if (inp.type === 'checkbox') inp.checked = false;
+        else inp.value = '';
+    });
+
+    ['toggle','label','higher','lower'].forEach(pfx => {
+        const el = newRow.querySelector(`[id^="${pfx}_"]`);
+        if (el) el.id = `${pfx}_${idx}`;
+    });
+
+    const preview = newRow.querySelector('.range-preview');
+    if (preview) { preview.classList.add('d-none'); preview.textContent = ''; }
+
+    container.appendChild(newRow);
+    totalForms.value = idx + 1;
+    setupToggle(idx);
+    setupRangePreview(newRow);});
+
+// Remove row
+container.addEventListener('click', e => {
+    if (e.target.classList.contains('remove-row')) {
+        if (container.querySelectorAll('.criteria-row').length > 2) {
+            e.target.closest('.criteria-row').remove();
+            container.querySelectorAll('.criteria-row').forEach((row, i) => {
+                row.querySelectorAll('input').forEach(inp => {
+                    inp.name = inp.name.replace(/cr-\d+/, `cr-${i}`);
+                    inp.id   = inp.id.replace(/cr-\d+/, `cr-${i}`);
+                });
+                ['toggle','label','higher','lower'].forEach(pfx => {
+                    const el = row.querySelector(`[id^="${pfx}_"]`);
+                    if (el) el.id = `${pfx}_${i}`;
+                });
+            });
+            totalForms.value = container.querySelectorAll('.criteria-row').length;
+        }
+    }
+});
+</script>
+{% endblock %}
